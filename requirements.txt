@@ -1,0 +1,5 @@
+numpy>=1.24
+matplotlib>=3.7
+pulp>=2.8,<3      # optimal baseline only; 3.x changed the API
+highspy>=1.7      # fast MILP solver used by PuLP
+pytest>=7
