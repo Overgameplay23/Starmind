@@ -1,43 +1,33 @@
 """
 sensor_check.py — Step 1 on the Pi: prove the sensor works before measuring anything.
 
-Prints 10 readings of voltage, current and power. What "correct" looks like:
-  * voltage about 5.0-5.2 V (it sags a little under load: that's normal)
-  * current about 0.4-0.7 A for an idle Pi 4, more for a Pi 5
-  * power = V x I, so about 2-4 W idle
-If current is negative, VIN+ and VIN- are swapped. If voltage is ~0, the
-sensor is on the wrong side of the supply or not powered.
+Prints 10 readings of voltage, current and power. What "correct" looks like on a Pi 400:
+  * voltage about 4.9-5.2 V (it sags a little under load: that's normal)
+  * current roughly 0.5-0.9 A at idle
+  * power = V x I, so roughly 2.5-4.5 W at idle
+If current is negative, VIN+ and VIN- are swapped. If voltage reads ~0, the
+sensor's VBUS sense isn't connected to the supply.
 
-    python3 measure/sensor_check.py --sensor ina219
+    python3 measure/sensor_check.py --sensor ina226 --shunt 0.008
 """
 
 import argparse
 import time
 
+from sensors import add_sensor_args, make_sensor
+
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--sensor", choices=["ina260", "ina219"], default="ina260")
-    ap.add_argument("--address", type=lambda s: int(s, 0), default=0x40)
+    add_sensor_args(ap)
     args = ap.parse_args()
-
-    import board
-
-    i2c = board.I2C()
-    if args.sensor == "ina219":
-        from adafruit_ina219 import INA219
-
-        ina = INA219(i2c, addr=args.address)
-        read = lambda: (ina.bus_voltage, ina.current / 1000.0)
-    else:
-        import adafruit_ina260
-
-        ina = adafruit_ina260.INA260(i2c, address=args.address)
-        read = lambda: (ina.voltage, ina.current / 1000.0)
+    sensor = make_sensor(args)
+    if hasattr(sensor, "max_current_a"):
+        print(f"INA226 found. Shunt {args.shunt} ohm -> max measurable current {sensor.max_current_a:.1f} A")
 
     print(f"{'V':>8} {'A':>8} {'W':>8}")
     for _ in range(10):
-        v, a = read()
+        v, a = sensor.read()
         print(f"{v:8.3f} {a:8.3f} {v * a:8.3f}")
         time.sleep(0.5)
 
